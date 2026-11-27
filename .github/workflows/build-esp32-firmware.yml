@@ -71,13 +71,23 @@ jobs:
         run: |
           set -euo pipefail
           OUT_DIR="$RUNNER_TEMP/esp32-build"
+          LOG_FILE="$RUNNER_TEMP/compile.log"
           rm -rf "$OUT_DIR"
           mkdir -p "$OUT_DIR"
+          set +e
           arduino-cli compile \
             --fqbn "$FQBN" \
             --warnings default \
             --output-dir "$OUT_DIR" \
-            "$SKETCH_DIR"
+            "$SKETCH_DIR" 2>&1 | tee "$LOG_FILE"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            grep -E '(error:|fatal error:|Error during build|undefined reference)' "$LOG_FILE" | head -n 10 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit "$rc"
+          fi
           ls -lh "$OUT_DIR"
 
       - name: Package firmware binaries and metadata
