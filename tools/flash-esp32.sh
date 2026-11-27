@@ -3,9 +3,9 @@ set -euo pipefail
 
 # ==============================================================================
 # GripMower ESP32 Firmware Flasher
-# Stiahne najnovší firmware z GitHub Releases (lukaskrnac/GripMower) a nahrá ho
-# cez USB do ESP32. Automaticky pozastaví a opäť spustí Docker kontajner
-# mowgli-ros2, aby uvoľnil sériový port.
+# Downloads the latest ESP32 firmware from GitHub Releases (lukaskrnac/GripMower)
+# and flashes it over USB. Automatically stops and restarts the mowgli-ros2
+# Docker container to release the serial port safely.
 # ==============================================================================
 
 REPO="${GRIPMOWER_REPO:-lukaskrnac/GripMower}"
@@ -28,7 +28,7 @@ STOPPED_CONTAINER=false
 DOCKER_CMD=()
 ESPTOOL_CMD=()
 
-# Farby (len ak je pripojený terminál)
+# Colors (only when connected to a terminal)
 if [ -t 1 ]; then
   C_RESET='\033[0m'
   C_BOLD='\033[1m'
@@ -43,25 +43,25 @@ fi
 
 info() { printf '%b[INFO]%b %s\n' "$C_CYAN" "$C_RESET" "$*"; }
 ok()   { printf '%b[ OK ]%b %s\n' "$C_GREEN" "$C_RESET" "$*"; }
-warn() { printf '%b[POZOR]%b %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
-err()  { printf '%b[CHYBA]%b %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
+warn() { printf '%b[WARN]%b %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
+err()  { printf '%b[ERROR]%b %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
 
 usage() {
   cat <<EOF
-Použitie: $(basename "$0") [voľby]
+Usage: $(basename "$0") [options]
 
-Stiahne aktuálny ESP32 firmware z GitHub Releases (${REPO}) a nahrá ho cez USB.
+Downloads the latest ESP32 firmware from GitHub Releases (${REPO}) and flashes it over USB.
 
-Voľby:
-  -p, --port <cesta>   Sériový port ESP32 (napr. /dev/mowgli alebo /dev/ttyUSB0)
-  -t, --tag <tag>      GitHub Release tag (predvolené: ${RELEASE_TAG})
-  -b, --baud <rýchl.>  Rýchlosť nahrávania (predvolené: ${BAUD})
-  -f, --file <súbor>   Nahrať lokálny merged .bin súbor namiesto sťahovania
-      --no-docker      Nepozastavovať/nespúšťať Docker kontajner (${MOWGLI_CONTAINER})
-  -y, --yes            Bez potvrdzovacích otázok
-      --pause          Po skončení čakať na Enter (pre spustenie z plochy)
-      --self-update    Aktualizovať tento flashovací skript z GitHubu
-  -h, --help           Zobraziť túto nápovedu
+Options:
+  -p, --port <path>    ESP32 serial port (e.g. /dev/mowgli or /dev/ttyUSB0)
+  -t, --tag <tag>      GitHub Release tag (default: ${RELEASE_TAG})
+  -b, --baud <rate>    Flashing baud rate (default: ${BAUD})
+  -f, --file <file>    Flash a local merged .bin file instead of downloading
+      --no-docker      Do not stop/restart the Docker container (${MOWGLI_CONTAINER})
+  -y, --yes            Skip confirmation prompts
+      --pause          Wait for Enter before exiting (used by Desktop shortcut)
+      --self-update    Update this flasher script from GitHub
+  -h, --help           Show this help message
 EOF
 }
 
@@ -76,7 +76,7 @@ while [ $# -gt 0 ]; do
     --pause)          PAUSE_AT_END=true; shift ;;
     --self-update)    SELF_UPDATE=true; shift ;;
     -h|--help)        usage; exit 0 ;;
-    *)                err "Neznámy parameter: $1"; usage; exit 2 ;;
+    *)                err "Unknown option: $1"; usage; exit 2 ;;
   esac
 done
 
@@ -84,12 +84,12 @@ cleanup() {
   local exit_code=$?
   if [ "$STOPPED_CONTAINER" = true ] && [ "${#DOCKER_CMD[@]}" -gt 0 ]; then
     echo ""
-    info "Čakám 2 s na nabehnutie ESP32 a spúšťam späť kontajner ${MOWGLI_CONTAINER}..."
+    info "Waiting 2 s for ESP32 boot and starting container ${MOWGLI_CONTAINER} back up..."
     sleep 2
     if "${DOCKER_CMD[@]}" start "$MOWGLI_CONTAINER" >/dev/null 2>&1; then
-      ok "Kontajner ${MOWGLI_CONTAINER} opäť beží."
+      ok "Container ${MOWGLI_CONTAINER} is running again."
     else
-      warn "Nepodarilo sa automaticky spustiť kontajner ${MOWGLI_CONTAINER}. Spusti ho ručne: docker start ${MOWGLI_CONTAINER}"
+      warn "Failed to restart container ${MOWGLI_CONTAINER}. Start it manually: docker start ${MOWGLI_CONTAINER}"
     fi
     STOPPED_CONTAINER=false
   fi
@@ -101,9 +101,9 @@ cleanup() {
   if [ "$PAUSE_AT_END" = true ]; then
     echo ""
     if [ "$exit_code" -eq 0 ]; then
-      printf '%bHotovo.%b Stlač Enter pre zatvorenie okna... ' "$C_GREEN$C_BOLD" "$C_RESET"
+      printf '%bDone.%b Press Enter to close this window... ' "$C_GREEN$C_BOLD" "$C_RESET"
     else
-      printf '%bSkončilo s chybou (kód %d).%b Stlač Enter pre zatvorenie okna... ' "$C_RED$C_BOLD" "$exit_code" "$C_RESET"
+      printf '%bExited with error (code %d).%b Press Enter to close this window... ' "$C_RED$C_BOLD" "$exit_code" "$C_RESET"
     fi
     read -r _ || true
   fi
@@ -115,20 +115,20 @@ do_self_update() {
   self_path="$(readlink -f "$0")"
   url="https://raw.githubusercontent.com/${REPO}/main/tools/flash-esp32.sh"
   tmp_new="$(mktemp)"
-  info "Sťahujem najnovšiu verziu skriptu z ${url}..."
+  info "Downloading latest script from ${url}..."
   if ! curl -fsSL "$url" -o "$tmp_new"; then
     rm -f "$tmp_new"
-    err "Nepodarilo sa stiahnuť aktualizáciu skriptu."
+    err "Failed to download script update."
     exit 1
   fi
   if ! bash -n "$tmp_new"; then
     rm -f "$tmp_new"
-    err "Stiahnutý skript neprešiel kontrolou syntaxe."
+    err "Downloaded script failed syntax validation."
     exit 1
   fi
   chmod +x "$tmp_new"
   mv "$tmp_new" "$self_path"
-  ok "Skript aktualizovaný: ${self_path}"
+  ok "Script updated: ${self_path}"
   exit 0
 }
 
@@ -136,34 +136,34 @@ if [ "$SELF_UPDATE" = true ]; then
   do_self_update
 fi
 
-# Kontrola základných nástrojov
+# Check basic dependencies
 for cmd in curl python3 sha256sum; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    err "Chýba požadovaný nástroj: $cmd (nainštaluj ho napr. cez sudo apt-get install -y $cmd)"
+    err "Missing required tool: $cmd (install it e.g. via: sudo apt-get install -y $cmd)"
     exit 1
   fi
 done
 
 printf '%b============================================================%b\n' "$C_BOLD$C_CYAN" "$C_RESET"
-printf '%b          GripMower — Aktualizácia ESP32 Firmvéru           %b\n' "$C_BOLD$C_CYAN" "$C_RESET"
+printf '%b            GripMower — ESP32 Firmware Updater              %b\n' "$C_BOLD$C_CYAN" "$C_RESET"
 printf '%b============================================================%b\n' "$C_BOLD$C_CYAN" "$C_RESET"
 echo ""
-warn "BEZPEČNOSŤ: Pred nahrávaním sa uisti, že kosačka stojí na mieste,"
-warn "nože sú vypnuté a v okolí kosačky nikto nestojí (ideálne stlač STOP)."
+warn "SAFETY: Make sure the mower is stationary, blades are stopped,"
+warn "and nobody is standing near the mower (ideally press physical STOP)."
 echo ""
 
 mkdir -p "$DATA_DIR"
 TMP_DIR="$(mktemp -d -t gripmower-esp32-XXXXXX)"
 
 # ------------------------------------------------------------------------------
-# 1. Stiahnutie informácií o verzii (alebo použitie lokálneho .bin)
+# 1. Fetch release metadata (or use local .bin)
 # ------------------------------------------------------------------------------
 RELEASE_BASE_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}"
 INFO_FILE="$TMP_DIR/firmware-info.json"
 SUMS_FILE="$TMP_DIR/SHA256SUMS.txt"
 BIN_FILE="$TMP_DIR/gripmower-esp32-merged.bin"
 
-REMOTE_FW_VERSION="neznáma"
+REMOTE_FW_VERSION="unknown"
 REMOTE_PROTO="?"
 REMOTE_COMMIT="?"
 REMOTE_BUILT_AT="?"
@@ -183,19 +183,19 @@ PY
 
 if [ -n "$LOCAL_BIN" ]; then
   if [ ! -f "$LOCAL_BIN" ]; then
-    err "Lokálny súbor neexistuje: $LOCAL_BIN"
+    err "Local file does not exist: $LOCAL_BIN"
     exit 1
   fi
   BIN_FILE="$LOCAL_BIN"
-  REMOTE_FW_VERSION="lokálny súbor ($(basename "$LOCAL_BIN"))"
+  REMOTE_FW_VERSION="local file ($(basename "$LOCAL_BIN"))"
   REMOTE_SHA="$(sha256sum "$LOCAL_BIN" | awk '{print $1}')"
-  info "Používam lokálny firmware: $LOCAL_BIN"
+  info "Using local firmware file: $LOCAL_BIN"
 else
-  info "Kontrolujem dostupný firmware na GitHube (${REPO} @ ${RELEASE_TAG})..."
+  info "Checking available firmware on GitHub (${REPO} @ ${RELEASE_TAG})..."
   if ! curl -fsSL "${RELEASE_BASE_URL}/firmware-info.json" -o "$INFO_FILE"; then
-    err "Nepodarilo sa stiahnuť firmware-info.json z:"
+    err "Failed to download firmware-info.json from:"
     err "  ${RELEASE_BASE_URL}/firmware-info.json"
-    err "Skontroluj pripojenie na internet a či už prebehol build v GitHub Actions."
+    err "Check your internet connection and verify that the GitHub Actions build has published a release."
     exit 1
   fi
 
@@ -205,23 +205,23 @@ else
   REMOTE_BUILT_AT="$(json_get "$INFO_FILE" built_at_utc)"
   REMOTE_SHA="$(json_get "$INFO_FILE" merged_sha256)"
 
-  printf '  %bDostupná verzia:%b  v%s (protokol v%s, commit %s)\n' "$C_BOLD" "$C_RESET" "$REMOTE_FW_VERSION" "$REMOTE_PROTO" "$REMOTE_COMMIT"
-  printf '  %bDátum buildu:%b     %s\n' "$C_BOLD" "$C_RESET" "$REMOTE_BUILT_AT"
+  printf '  %bAvailable version:%b v%s (protocol v%s, commit %s)\n' "$C_BOLD" "$C_RESET" "$REMOTE_FW_VERSION" "$REMOTE_PROTO" "$REMOTE_COMMIT"
+  printf '  %bBuild date (UTC):%b  %s\n' "$C_BOLD" "$C_RESET" "$REMOTE_BUILT_AT"
 
   if [ -f "$STATE_FILE" ]; then
     PREV_FW="$(json_get "$STATE_FILE" fw_version)"
     PREV_COMMIT="$(json_get "$STATE_FILE" commit_short)"
     PREV_SHA="$(json_get "$STATE_FILE" merged_sha256)"
-    printf '  %bNaposledy nahraté:%b v%s (commit %s)\n' "$C_BOLD" "$C_RESET" "${PREV_FW:-?}" "${PREV_COMMIT:-?}"
+    printf '  %bLast flashed:%b      v%s (commit %s)\n' "$C_BOLD" "$C_RESET" "${PREV_FW:-?}" "${PREV_COMMIT:-?}"
     if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" = "$PREV_SHA" ]; then
-      ok "Podľa záznamu už máš v ESP32 rovnakú verziu (${REMOTE_COMMIT})."
+      ok "According to local records, this exact build (${REMOTE_COMMIT}) is already flashed."
     fi
   fi
   echo ""
 fi
 
 # ------------------------------------------------------------------------------
-# 2. Detekcia USB sériového portu ESP32
+# 2. Auto-detect ESP32 USB serial port
 # ------------------------------------------------------------------------------
 describe_port() {
   local dev="$1"
@@ -237,13 +237,13 @@ describe_port() {
       esac
     done < <(udevadm info --query=property --name="$real_dev" 2>/dev/null || true)
   fi
-  desc="${model:-USB sériové zariadenie}"
+  desc="${model:-USB serial device}"
   [ -n "$vid" ] && [ -n "$pid" ] && desc="${desc} [${vid}:${pid}]"
 
   if [ -n "$GPS_REAL" ] && [ "$real_dev" = "$GPS_REAL" ]; then
-    tag=" (GPS - nevyberaj)"
+    tag=" (GPS - do not select)"
   elif [ -n "$LIDAR_REAL" ] && [ "$real_dev" = "$LIDAR_REAL" ]; then
-    tag=" (LiDAR - nevyberaj)"
+    tag=" (LiDAR - do not select)"
   elif [ -n "$MOWGLI_REAL" ] && [ "$real_dev" = "$MOWGLI_REAL" ]; then
     tag=" (Mowgli /dev/mowgli)"
   fi
@@ -285,7 +285,7 @@ if [ -z "$PORT" ]; then
   for dev in /dev/ttyUSB* /dev/ttyACM*; do
     [ -c "$dev" ] || continue
     real_dev="$(readlink -f "$dev" 2>/dev/null || echo "$dev")"
-    # Preskoč duplikát ak je už pridaný ako /dev/mowgli
+    # Skip duplicate if already added as /dev/mowgli
     if [ -n "$MOWGLI_REAL" ] && [ "$real_dev" = "$MOWGLI_REAL" ]; then
       continue
     fi
@@ -296,8 +296,8 @@ if [ -z "$PORT" ]; then
   done
 
   if [ "${#ALL_PORTS[@]}" -eq 0 ]; then
-    err "Nenašiel som žiadny USB sériový port (/dev/mowgli, /dev/ttyUSB*, /dev/ttyACM*)."
-    err "Skontroluj, či je ESP32 pripojené USB káblom k Raspberry Pi."
+    err "No USB serial port found (/dev/mowgli, /dev/ttyUSB*, /dev/ttyACM*)."
+    err "Check that the ESP32 is connected via USB to the Mini PC."
     exit 1
   fi
 
@@ -319,9 +319,9 @@ if [ -z "$PORT" ]; then
     PORT="${ALL_PORTS[$((DEFAULT_IDX - 1))]}"
   elif [ "${#ALL_PORTS[@]}" -eq 1 ]; then
     PORT="${ALL_PORTS[0]}"
-    info "Nájdený port: $(describe_port "$PORT")"
+    info "Detected port: $(describe_port "$PORT")"
   else
-    info "Nájdené sériové porty:"
+    info "Detected serial ports:"
     for i in "${!ALL_PORTS[@]}"; do
       idx=$((i + 1))
       mark=" "
@@ -330,15 +330,15 @@ if [ -z "$PORT" ]; then
     done
     echo ""
     if [ -n "$DEFAULT_IDX" ]; then
-      printf 'Vyber číslo portu [Enter = %d (%s)]: ' "$DEFAULT_IDX" "${ALL_PORTS[$((DEFAULT_IDX - 1))]}"
+      printf 'Select port number [Enter = %d (%s)]: ' "$DEFAULT_IDX" "${ALL_PORTS[$((DEFAULT_IDX - 1))]}"
       read -r choice
       choice="${choice:-$DEFAULT_IDX}"
     else
-      printf 'Vyber číslo portu (1-%d): ' "${#ALL_PORTS[@]}"
+      printf 'Select port number (1-%d): ' "${#ALL_PORTS[@]}"
       read -r choice
     fi
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "${#ALL_PORTS[@]}" ]; then
-      err "Neplatný výber portu."
+      err "Invalid port selection."
       exit 1
     fi
     PORT="${ALL_PORTS[$((choice - 1))]}"
@@ -346,14 +346,14 @@ if [ -z "$PORT" ]; then
 fi
 
 if [ ! -e "$PORT" ]; then
-  err "Port neexistuje: $PORT"
+  err "Port does not exist: $PORT"
   exit 1
 fi
 
 PORT_REAL="$(readlink -f "$PORT" 2>/dev/null || echo "$PORT")"
 
 # ------------------------------------------------------------------------------
-# 3. Kontrola Docker kontajnera mowgli-ros2 (zatiaľ ho nezastavujeme)
+# 3. Check mowgli-ros2 Docker container status (do not stop yet)
 # ------------------------------------------------------------------------------
 CONTAINER_RUNNING=false
 if [ "$MANAGE_DOCKER" = true ] && command -v docker >/dev/null 2>&1; then
@@ -371,39 +371,39 @@ if [ "$MANAGE_DOCKER" = true ] && command -v docker >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Potvrdenie pred nahrávaním
+# 4. Confirm before flashing
 # ------------------------------------------------------------------------------
 echo ""
-printf '%bZhrnutie nahrávania:%b\n' "$C_BOLD" "$C_RESET"
-printf '  Port ESP32:      %s\n' "$(describe_port "$PORT")"
-printf '  Firmware:        %s (commit %s)\n' "$REMOTE_FW_VERSION" "$REMOTE_COMMIT"
-printf '  Rýchlosť (baud): %s\n' "$BAUD"
+printf '%bFlashing summary:%b\n' "$C_BOLD" "$C_RESET"
+printf '  ESP32 port: %s\n' "$(describe_port "$PORT")"
+printf '  Firmware:   %s (commit %s)\n' "$REMOTE_FW_VERSION" "$REMOTE_COMMIT"
+printf '  Baud rate:  %s\n' "$BAUD"
 if [ "$CONTAINER_RUNNING" = true ]; then
-  printf '  Docker:          dočasne zastaví %s a po nahratí ho opäť spustí\n' "$MOWGLI_CONTAINER"
+  printf '  Docker:     will temporarily stop %s and restart it afterwards\n' "$MOWGLI_CONTAINER"
 fi
 echo ""
 
 if [ "$ASSUME_YES" != true ]; then
-  printf 'Pokračovať s nahrávaním do ESP32? [A/n]: '
+  printf 'Proceed with flashing ESP32? [Y/n]: '
   read -r answer
-  case "${answer:-a}" in
-    a|A|y|Y|ano|ANO|yes|YES) ;;
-    *) info "Nahrávanie zrušené používateľom."; exit 0 ;;
+  case "${answer:-y}" in
+    y|Y|yes|YES|a|A) ;;
+    *) info "Flashing cancelled by user."; exit 0 ;;
   esac
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Stiahnutie binárky a overenie SHA-256
+# 5. Download merged binary and verify SHA-256
 # ------------------------------------------------------------------------------
 if [ -z "$LOCAL_BIN" ]; then
   echo ""
-  info "Sťahujem gripmower-esp32-merged.bin..."
+  info "Downloading gripmower-esp32-merged.bin..."
   if ! curl -fL --progress-bar "${RELEASE_BASE_URL}/gripmower-esp32-merged.bin" -o "$BIN_FILE"; then
-    err "Nepodarilo sa stiahnuť gripmower-esp32-merged.bin."
+    err "Failed to download gripmower-esp32-merged.bin."
     exit 1
   fi
 
-  info "Overujem kontrolný súčet (SHA-256)..."
+  info "Verifying SHA-256 checksum..."
   if curl -fsSL "${RELEASE_BASE_URL}/SHA256SUMS.txt" -o "$SUMS_FILE"; then
     EXPECTED_SHA="$(awk '$2 == "gripmower-esp32-merged.bin" {print $1; exit}' "$SUMS_FILE")"
   else
@@ -411,16 +411,16 @@ if [ -z "$LOCAL_BIN" ]; then
   fi
   ACTUAL_SHA="$(sha256sum "$BIN_FILE" | awk '{print $1}')"
   if [ -z "$EXPECTED_SHA" ] || [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
-    err "Kontrolný súčet SHA-256 nesedí! Nahrávanie zrušené."
-    err "  Očakávaný: ${EXPECTED_SHA:-chýba}"
-    err "  Skutočný:  ${ACTUAL_SHA}"
+    err "SHA-256 checksum mismatch! Aborting flash."
+    err "  Expected: ${EXPECTED_SHA:-missing}"
+    err "  Actual:   ${ACTUAL_SHA}"
     exit 1
   fi
-  ok "SHA-256 overený (${ACTUAL_SHA:0:16}...)."
+  ok "SHA-256 verified (${ACTUAL_SHA:0:16}...)."
 fi
 
 # ------------------------------------------------------------------------------
-# 6. Zabezpečenie nástroja esptool
+# 6. Ensure esptool is installed
 # ------------------------------------------------------------------------------
 detect_esptool() {
   if [ -x "$VENV_DIR/bin/esptool" ]; then
@@ -443,14 +443,14 @@ detect_esptool() {
 }
 
 if ! detect_esptool; then
-  info "esptool nie je nainštalovaný — inštalujem ho do vlastného Python venv (${VENV_DIR})..."
+  info "esptool not found — installing into isolated Python venv (${VENV_DIR})..."
   if ! python3 -m venv "$VENV_DIR" >/dev/null 2>&1; then
-    warn "Chýba python3-venv, skúšam nainštalovať cez apt-get..."
+    warn "python3-venv missing, attempting to install via apt-get..."
     sudo apt-get update -qq
     if sudo apt-get install -y -qq python3-venv >/dev/null 2>&1; then
       python3 -m venv "$VENV_DIR"
     else
-      warn "Skúšam nainštalovať systémový balík esptool..."
+      warn "Falling back to system esptool apt package..."
       sudo apt-get install -y -qq esptool
     fi
   fi
@@ -461,13 +461,13 @@ if ! detect_esptool; then
   fi
 
   if ! detect_esptool; then
-    err "Nepodarilo sa nainštalovať esptool. Nainštaluj ho ručne: sudo apt-get install -y esptool"
+    err "Failed to install esptool. Install manually: sudo apt-get install -y esptool"
     exit 1
   fi
-  ok "esptool pripravený: ${ESPTOOL_CMD[*]}"
+  ok "esptool ready: ${ESPTOOL_CMD[*]}"
 fi
 
-# Zistenie, či esptool používa syntax v5 (pomlčky) alebo v3/v4 (podčiarkovníky)
+# Detect esptool v5 (hyphenated flags) vs v3/v4 (underscored flags)
 if "${ESPTOOL_CMD[@]}" --help 2>&1 | grep -q 'write-flash'; then
   ESP_WRITE_CMD="write-flash"
   ESP_BEFORE="default-reset"
@@ -485,30 +485,30 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Zastavenie mowgli-ros2 (uvoľnenie sériového portu)
+# 7. Stop mowgli-ros2 (release serial port)
 # ------------------------------------------------------------------------------
 if [ "$CONTAINER_RUNNING" = true ]; then
   echo ""
-  info "Zastavujem kontajner ${MOWGLI_CONTAINER}, aby uvoľnil sériový port..."
+  info "Stopping container ${MOWGLI_CONTAINER} to release serial port..."
   "${DOCKER_CMD[@]}" stop "$MOWGLI_CONTAINER" >/dev/null
   STOPPED_CONTAINER=true
   sleep 1
-  ok "Kontajner ${MOWGLI_CONTAINER} zastavený."
+  ok "Container ${MOWGLI_CONTAINER} stopped."
 fi
 
 if command -v fuser >/dev/null 2>&1 && fuser "$PORT_REAL" >/dev/null 2>&1; then
-  warn "Port ${PORT_REAL} stále drží nejaký proces:"
+  warn "Port ${PORT_REAL} is still held open by another process:"
   fuser -v "$PORT_REAL" || true
 fi
 
 # ------------------------------------------------------------------------------
-# 8. Nahratie firmvéru do ESP32 cez USB
+# 8. Flash ESP32 over USB
 # ------------------------------------------------------------------------------
 run_esptool() {
   local rate="$1"
   local prefix=()
   if [ ! -r "$PORT_REAL" ] || [ ! -w "$PORT_REAL" ]; then
-    warn "Nemáš priame práva na zápis do ${PORT_REAL} — spúšťam esptool cez sudo."
+    warn "No direct read/write permission on ${PORT_REAL} — running esptool with sudo."
     prefix=(sudo)
   fi
   "${prefix[@]}" "${ESPTOOL_CMD[@]}" \
@@ -526,30 +526,30 @@ run_esptool() {
 }
 
 echo ""
-info "Nahrávam firmware do ESP32 na porte ${PORT_REAL} (${BAUD} baud)..."
-info "Ak sa zobrazí 'Connecting...' a nespustí sa nahrávanie, podrž na ESP32 tlačidlo BOOT."
+info "Flashing firmware to ESP32 on ${PORT_REAL} (${BAUD} baud)..."
+info "If it stalls on 'Connecting...', hold the BOOT button on the ESP32."
 echo ""
 
 if ! run_esptool "$BAUD"; then
   if [ "$BAUD" != "115200" ]; then
     echo ""
-    warn "Nahrávanie pri ${BAUD} baud zlyhalo — skúšam pomalšiu a spoľahlivejšiu rýchlosť 115200 baud..."
+    warn "Flashing at ${BAUD} baud failed — retrying at a slower 115200 baud..."
     echo ""
     if ! run_esptool 115200; then
-      err "Nahrávanie do ESP32 zlyhalo aj pri 115200 baud."
-      err "Skontroluj USB kábel, či port nedrží iný program, prípadne podrž tlačidlo BOOT na ESP32."
+      err "Flashing ESP32 failed even at 115200 baud."
+      err "Check the USB cable, make sure no other process holds the port, or hold the BOOT button on the ESP32."
       exit 1
     fi
   else
-    err "Nahrávanie do ESP32 zlyhalo."
+    err "Flashing ESP32 failed."
     exit 1
   fi
 fi
 
-# Uloženie informácie o naposledy nahratej verzii
+# Save record of last flashed version
 if [ -f "$INFO_FILE" ]; then
   cp "$INFO_FILE" "$STATE_FILE"
 fi
 
 echo ""
-ok "Firmware bol úspešne nahratý do ESP32!"
+ok "Firmware successfully flashed to ESP32!"
