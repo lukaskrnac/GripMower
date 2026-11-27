@@ -275,17 +275,17 @@ jobs:
 
           NOTES_FILE="$RUNNER_TEMP/release-notes.md"
           cat > "$NOTES_FILE" <<EOF
-          Automatický build ESP32 firmvéru **mainEmulatorMowgli** pre GripMower.
+          Automated build of the **mainEmulatorMowgli** ESP32 firmware for GripMower.
 
-          - **Verzia firmvéru:** \`v${FW_VERSION}\` (MowgliNext protokol \`v${PROTO_VERSION}\`)
+          - **Firmware version:** \`v${FW_VERSION}\` (MowgliNext protocol \`v${PROTO_VERSION}\`)
           - **Commit:** \`${GITHUB_SHA}\` (\`${COMMIT_SHORT}\`)
-          - **Dátum buildu (UTC):** \`${BUILT_AT}\`
-          - **Doska / Core:** \`${FQBN}\` / \`esp32:esp32@${ESP32_CORE_VERSION}\`
-          - **Veľkosť merged image:** \`${MERGED_SIZE}\` B
+          - **Build timestamp (UTC):** \`${BUILT_AT}\`
+          - **Board / Core:** \`${FQBN}\` / \`esp32:esp32@${ESP32_CORE_VERSION}\`
+          - **Merged image size:** \`${MERGED_SIZE}\` B
           - **SHA-256 (\`gripmower-esp32-merged.bin\`):** \`${MERGED_SHA}\`
 
-          ### Rýchle nahratie na kosačke (Raspberry Pi)
-          Spusti ikonu **GripMower ESP32 Flash** na ploche alebo v termináli:
+          ### Quick flash on the mower (Mini PC)
+          Double-click **GripMower ESP32 Flash** on the Desktop or run in a terminal:
           \`\`\`bash
           gripmower-flash-esp32
           \`\`\`
