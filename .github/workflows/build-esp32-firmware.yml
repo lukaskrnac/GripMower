@@ -65,6 +65,18 @@ jobs:
           arduino-cli lib install --git-url https://github.com/luisllamasbinaburo/Arduino-BTS7960.git
           arduino-cli lib install --git-url https://github.com/bolderflight/bmi088-arduino.git
           arduino-cli lib install --git-url https://github.com/LiquidCGS/FastIMU.git
+          # ESP32 Arduino core defines `#define OPEN_DRAIN 0x10` in esp32-hal-gpio.h,
+          # which collides with `enum PinMode { PUSH_PULL, OPEN_DRAIN }` in BMI088.h.
+          BMI088_H="$HOME/Arduino/libraries/Bolder_Flight_Systems_BMI088/src/BMI088.h"
+          python3 - "$BMI088_H" <<'PY'
+          import sys
+          p = sys.argv[1]
+          txt = open(p, encoding="utf-8").read()
+          target = '#include "Arduino.h"'
+          assert target in txt, f"{target} not found in {p}"
+          txt = txt.replace(target, target + "\n#ifdef OPEN_DRAIN\n#undef OPEN_DRAIN\n#endif", 1)
+          open(p, "w", encoding="utf-8").write(txt)
+          PY
           arduino-cli lib list
 
       - name: Compile ESP32 firmware
