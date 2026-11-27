@@ -254,7 +254,7 @@
   <g filter="url(#shadow)">
     <rect x="866" y="400" width="326" height="134" class="card" stroke="#ea580c"/>
     <rect x="866" y="400" width="8" height="134" rx="4" fill="#ea580c"/>
-    <text x="886" y="425" class="card-title">MM32 Blade Motors (Hoverboard BLDC)</text>
+    <text x="886" y="425" class="card-title">MM32 Blade Motors (6374 BLDC)</text>
     <text x="886" y="444" class="card-sub">Serial2 • 115200 baud • CANSimple-over-UART</text>
     <rect x="886" y="456" width="90" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
     <text x="931" y="472" text-anchor="middle" class="card-mono" style="font-weight:700;fill:#9a3412">ID 3</text>

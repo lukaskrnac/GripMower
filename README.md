@@ -4,7 +4,7 @@
 
 Hardware and firmware repository for **GripMower**, a custom **autonomous robotic lawn mower built for steep slopes**.
 
-GripMower runs on an onboard **Mini PC** powered by [MowgliNext](https://github.com/mowglinext/mowglinext) with a **3D localization extension** ([`lukaskrnac/mowglinext` (`3D_slam`)](https://github.com/lukaskrnac/mowglinext/tree/3D_slam)). Propulsion and cutting use **hoverboard BLDC motors** (with spiked traction drums for steep terrain) driven by MM32 motor controllers running [Hoverboard-Firmware-Hack-Gen2.X-MM32](https://github.com/lukaskrnac/Hoverboard-Firmware-Hack-Gen2.X-MM32).
+GripMower runs on an onboard **Mini PC** powered by [MowgliNext](https://github.com/mowglinext/mowglinext) with a **3D localization extension** ([`lukaskrnac/mowglinext` (`3D_slam`)](https://github.com/lukaskrnac/mowglinext/tree/3D_slam)). The spiked traction drive wheels use **hoverboard BLDC hub motors**, and the cutting deck uses **3× 6374 BLDC motors** — all driven by MM32 motor controllers running [Hoverboard-Firmware-Hack-Gen2.X-MM32](https://github.com/lukaskrnac/Hoverboard-Firmware-Hack-Gen2.X-MM32).
 
 This repository hosts the low-level **ESP32 firmware** (emulating the Mowgli STM32 mainboard over wire protocol **v9**), MM32 CANSimple-over-UART motor communication, IMU/magnetometer sensing, active front-wheel steering, safety watchdog logic, and automated firmware build/flashing tools.
 
@@ -54,7 +54,7 @@ GripMower/
 
 ## Drive System & Safety
 
-- **Hoverboard BLDC motors & controllers:** 2× MM32 controllers for the spiked drive wheels (IDs `1`, `2`) + 3× MM32 controllers for the cutting blades (IDs `3`, `4`, `5`), running [Hoverboard-Firmware-Hack-Gen2.X-MM32](https://github.com/lukaskrnac/Hoverboard-Firmware-Hack-Gen2.X-MM32).
+- **BLDC motors & MM32 controllers:** 2× MM32 controllers for the hoverboard BLDC drive wheels (IDs `1`, `2`) + 3× MM32 controllers for the 6374 BLDC cutting blade motors (IDs `3`, `4`, `5`), all running [Hoverboard-Firmware-Hack-Gen2.X-MM32](https://github.com/lukaskrnac/Hoverboard-Firmware-Hack-Gen2.X-MM32).
 - **Kinematics:** `WHEEL_DIST = 0.52 m`, `STEER_DIST = 0.52 m`, `WHEEL_DIAMETER_M = 0.29 m`, gear ratio `WHEEL_GEAR_RATIO = 9.7`.
 - **Active slope hold brake (`WHEEL_HOLD_BRAKE = 1`):** Drive wheels remain armed in `MM32_RUN` at `0 rev/s` when stationary (including on `tilt_latch` on steep slopes while blades drop to `IDLE`). Pressing the physical STOP button, losing host heartbeat (> 500 ms), any motor controller fault, or a watchdog trip immediately drops the main contactor on `GPIO4`.
 - **No-blade bench testing:** Blade readiness checks in `checkMotorPower()` are currently commented out for testing without blade boards — uncomment them once the blade controllers are connected.
