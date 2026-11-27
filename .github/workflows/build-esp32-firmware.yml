@@ -1,0 +1,319 @@
+name: Build ESP32 Firmware
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'firmware/esp32/**'
+      - '.github/workflows/build-esp32-firmware.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: esp32-firmware-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  SKETCH_DIR: firmware/esp32/mainEmulatorMowgli
+  SKETCH_NAME: mainEmulatorMowgli
+  FQBN: esp32:esp32:esp32
+  ESP32_CORE_VERSION: "3.3.13"
+  ESP32_INDEX_URL: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+jobs:
+  build:
+    name: Build mainEmulatorMowgli (ESP32)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Cache ESP32 Arduino core
+        uses: actions/cache@v4
+        with:
+          path: ~/.arduino15
+          key: arduino-esp32-${{ runner.os }}-${{ env.ESP32_CORE_VERSION }}
+
+      - name: Configure Arduino CLI and install ESP32 core
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config add board_manager.additional_urls "$ESP32_INDEX_URL"
+          arduino-cli config set library.enable_unsafe_install true
+          arduino-cli core update-index
+          if ! arduino-cli core list | awk '$1 == "esp32:esp32" && $2 == "'"$ESP32_CORE_VERSION"'" { found=1 } END { exit !found }'; then
+            arduino-cli core install "esp32:esp32@${ESP32_CORE_VERSION}"
+          fi
+          arduino-cli core list
+
+      - name: Install required Arduino libraries
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME/Arduino/libraries"
+          mkdir -p "$HOME/Arduino/libraries"
+          arduino-cli lib install --git-url https://github.com/FrankBoesing/FastCRC.git
+          arduino-cli lib install --git-url https://github.com/bakercp/PacketSerial.git
+          arduino-cli lib install --git-url https://github.com/luisllamasbinaburo/Arduino-BTS7960.git
+          arduino-cli lib install --git-url https://github.com/bolderflight/bmi088-arduino.git
+          arduino-cli lib install --git-url https://github.com/LiquidCGS/FastIMU.git
+          # ESP32 Arduino core defines `#define OPEN_DRAIN 0x10` in esp32-hal-gpio.h,
+          # which collides with `enum PinMode { PUSH_PULL, OPEN_DRAIN }` in BMI088.h.
+          BMI088_H="$HOME/Arduino/libraries/Bolder_Flight_Systems_BMI088/src/BMI088.h"
+          python3 - "$BMI088_H" <<'PY'
+          import sys
+          p = sys.argv[1]
+          txt = open(p, encoding="utf-8").read()
+          target = '#include "Arduino.h"'
+          assert target in txt, f"{target} not found in {p}"
+          txt = txt.replace(target, target + "\n#ifdef OPEN_DRAIN\n#undef OPEN_DRAIN\n#endif", 1)
+          open(p, "w", encoding="utf-8").write(txt)
+          PY
+          arduino-cli lib list
+
+      - name: Compile ESP32 firmware
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/esp32-build"
+          LOG_FILE="$RUNNER_TEMP/compile.log"
+          rm -rf "$OUT_DIR"
+          mkdir -p "$OUT_DIR"
+          set +e
+          arduino-cli compile \
+            --fqbn "$FQBN" \
+            --warnings default \
+            --output-dir "$OUT_DIR" \
+            "$SKETCH_DIR" 2>&1 | tee "$LOG_FILE"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            grep -E '(error:|fatal error:|Error during build|undefined reference)' "$LOG_FILE" | head -n 10 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit "$rc"
+          fi
+          ls -lh "$OUT_DIR"
+
+      - name: Package firmware binaries and metadata
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/esp32-build"
+          DIST_DIR="$RUNNER_TEMP/esp32-dist"
+          rm -rf "$DIST_DIR"
+          mkdir -p "$DIST_DIR"
+
+          APP_BIN="$OUT_DIR/${SKETCH_NAME}.ino.bin"
+          BOOT_BIN="$OUT_DIR/${SKETCH_NAME}.ino.bootloader.bin"
+          PART_BIN="$OUT_DIR/${SKETCH_NAME}.ino.partitions.bin"
+          MERGED_BIN="$OUT_DIR/${SKETCH_NAME}.ino.merged.bin"
+
+          for f in "$APP_BIN" "$BOOT_BIN" "$PART_BIN"; do
+            if [ ! -f "$f" ]; then
+              echo "ERROR: Missing expected build output: $f" >&2
+              exit 1
+            fi
+          done
+
+          if [ ! -f "$MERGED_BIN" ]; then
+            echo "Merged binary not emitted automatically; building merged image with esptool..."
+            ESPTOOL_BIN="$(find "$HOME/.arduino15/packages/esp32/tools/esptool_py" -type f \( -name 'esptool' -o -name 'esptool.py' \) | head -n1)"
+            BOOT_APP0="$(find "$HOME/.arduino15/packages/esp32/hardware/esp32" -name 'boot_app0.bin' | head -n1)"
+            if [ -z "$ESPTOOL_BIN" ] || [ -z "$BOOT_APP0" ]; then
+              echo "ERROR: Cannot locate esptool or boot_app0.bin to merge binaries." >&2
+              exit 1
+            fi
+            if "$ESPTOOL_BIN" --help 2>&1 | grep -q 'merge-bin'; then
+              "$ESPTOOL_BIN" --chip esp32 merge-bin \
+                -o "$MERGED_BIN" \
+                --flash-mode dio --flash-freq 40m --flash-size 4MB \
+                0x1000 "$BOOT_BIN" \
+                0x8000 "$PART_BIN" \
+                0xe000 "$BOOT_APP0" \
+                0x10000 "$APP_BIN"
+            else
+              "$ESPTOOL_BIN" --chip esp32 merge_bin \
+                -o "$MERGED_BIN" \
+                --flash_mode dio --flash_freq 40m --flash_size 4MB \
+                0x1000 "$BOOT_BIN" \
+                0x8000 "$PART_BIN" \
+                0xe000 "$BOOT_APP0" \
+                0x10000 "$APP_BIN"
+            fi
+          fi
+
+          cp "$MERGED_BIN" "$DIST_DIR/gripmower-esp32-merged.bin"
+          cp "$APP_BIN"    "$DIST_DIR/gripmower-esp32-app.bin"
+          cp "$BOOT_BIN"   "$DIST_DIR/gripmower-esp32-bootloader.bin"
+          cp "$PART_BIN"   "$DIST_DIR/gripmower-esp32-partitions.bin"
+
+          (
+            cd "$DIST_DIR"
+            sha256sum \
+              gripmower-esp32-merged.bin \
+              gripmower-esp32-app.bin \
+              gripmower-esp32-bootloader.bin \
+              gripmower-esp32-partitions.bin \
+              > SHA256SUMS.txt
+          )
+
+          python3 - "$SKETCH_DIR/${SKETCH_NAME}.ino" "$DIST_DIR" <<'PY'
+          import datetime
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+
+          sketch_path, dist_dir = sys.argv[1], sys.argv[2]
+          src = open(sketch_path, encoding="utf-8").read()
+
+          def find_int(pattern, default=None):
+              m = re.search(pattern, src)
+              return int(m.group(1)) if m else default
+
+          major = find_int(r"fw_version_major\s*=\s*(\d+)")
+          minor = find_int(r"fw_version_minor\s*=\s*(\d+)")
+          patch = find_int(r"fw_version_patch\s*=\s*(\d+)")
+          proto = find_int(r"#define\s+MOWGLI_PROTOCOL_VERSION\s+(\d+)u?")
+
+          fw_version = (
+              f"{major}.{minor}.{patch}"
+              if None not in (major, minor, patch)
+              else "unknown"
+          )
+
+          merged_path = os.path.join(dist_dir, "gripmower-esp32-merged.bin")
+          merged_bytes = open(merged_path, "rb").read()
+          merged_sha256 = hashlib.sha256(merged_bytes).hexdigest()
+
+          commit_sha = os.environ["GITHUB_SHA"]
+          info = {
+              "firmware": os.environ["SKETCH_NAME"],
+              "fw_version": fw_version,
+              "protocol_version": proto,
+              "fqbn": os.environ["FQBN"],
+              "esp32_core_version": os.environ["ESP32_CORE_VERSION"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "ref": os.environ["GITHUB_REF"],
+              "commit_sha": commit_sha,
+              "commit_short": commit_sha[:7],
+              "built_at_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "merged_bin": "gripmower-esp32-merged.bin",
+              "merged_sha256": merged_sha256,
+              "merged_size_bytes": len(merged_bytes),
+          }
+          with open(os.path.join(dist_dir, "firmware-info.json"), "w", encoding="utf-8") as f:
+              json.dump(info, f, indent=2)
+              f.write("\n")
+          print(json.dumps(info, indent=2))
+          PY
+
+          ls -lh "$DIST_DIR"
+          cat "$DIST_DIR/SHA256SUMS.txt"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gripmower-esp32-firmware
+          path: ${{ runner.temp }}/esp32-dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download built firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gripmower-esp32-firmware
+          path: ${{ runner.temp }}/esp32-dist
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DIST_DIR="$RUNNER_TEMP/esp32-dist"
+          INFO="$DIST_DIR/firmware-info.json"
+
+          FW_VERSION="$(jq -r '.fw_version' "$INFO")"
+          PROTO_VERSION="$(jq -r '.protocol_version' "$INFO")"
+          COMMIT_SHORT="$(jq -r '.commit_short' "$INFO")"
+          BUILT_AT="$(jq -r '.built_at_utc' "$INFO")"
+          MERGED_SHA="$(jq -r '.merged_sha256' "$INFO")"
+          MERGED_SIZE="$(jq -r '.merged_size_bytes' "$INFO")"
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+            RELEASE_TITLE="GripMower ESP32 Firmware ${RELEASE_TAG} (v${FW_VERSION})"
+            IS_ROLLING=false
+          else
+            RELEASE_TAG="firmware-latest"
+            RELEASE_TITLE="GripMower ESP32 Firmware (Latest main — v${FW_VERSION} / ${COMMIT_SHORT})"
+            IS_ROLLING=true
+          fi
+
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          cat > "$NOTES_FILE" <<EOF
+          Automatický build ESP32 firmvéru **mainEmulatorMowgli** pre GripMower.
+
+          - **Verzia firmvéru:** \`v${FW_VERSION}\` (MowgliNext protokol \`v${PROTO_VERSION}\`)
+          - **Commit:** \`${GITHUB_SHA}\` (\`${COMMIT_SHORT}\`)
+          - **Dátum buildu (UTC):** \`${BUILT_AT}\`
+          - **Doska / Core:** \`${FQBN}\` / \`esp32:esp32@${ESP32_CORE_VERSION}\`
+          - **Veľkosť merged image:** \`${MERGED_SIZE}\` B
+          - **SHA-256 (\`gripmower-esp32-merged.bin\`):** \`${MERGED_SHA}\`
+
+          ### Rýchle nahratie na kosačke (Raspberry Pi)
+          Spusti ikonu **GripMower ESP32 Flash** na ploche alebo v termináli:
+          \`\`\`bash
+          gripmower-flash-esp32
+          \`\`\`
+          EOF
+
+          if [ "$IS_ROLLING" = true ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+            git push -f origin "refs/tags/${RELEASE_TAG}"
+          fi
+
+          FILES=(
+            "$DIST_DIR/gripmower-esp32-merged.bin"
+            "$DIST_DIR/gripmower-esp32-app.bin"
+            "$DIST_DIR/gripmower-esp32-bootloader.bin"
+            "$DIST_DIR/gripmower-esp32-partitions.bin"
+            "$DIST_DIR/firmware-info.json"
+            "$DIST_DIR/SHA256SUMS.txt"
+          )
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${FILES[@]}" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$NOTES_FILE"
+          else
+            gh release create "$RELEASE_TAG" "${FILES[@]}" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$NOTES_FILE"
+          fi

@@ -8,6 +8,9 @@ Obsahuje nízkoúrovňový firmvér pre ESP32 (emulátor Mowgli STM32 mainboardu
 
 ```text
 GripMower/
+├── .github/
+│   └── workflows/
+│       └── build-esp32-firmware.yml  # Automatický build ESP32 firmvéru + GitHub Release
 ├── firmware/
 │   └── esp32/
 │       └── mainEmulatorMowgli/   # Arduino sketch pre ESP32 (MowgliNext protokol v9)
@@ -17,6 +20,9 @@ GripMower/
 │           ├── MotorWatchdog.h   # Hardvérový watchdog + okamžité odpojenie stykača
 │           ├── imu.h / imu.cpp   # BMI088 (accel/gyro) + QMC5883L (magnetometer)
 │           └── AS5600Wire1.h / AS5600.cpp  # Magnetický enkodér riadenia (Wire1)
+├── tools/
+│   ├── flash-esp32.sh            # Stiahne najnovší build z GitHubu a nahrá ho cez USB do ESP32
+│   └── install-flasher.sh        # Vytvorí ikonu na plochu Raspberry Pi (vzdialená plocha)
 ├── hardware/                     # (pripravené pre schémy, PCB, CAD/3D modely)
 └── docs/                         # (pripravené pre poznámky a dokumentáciu)
 ```
@@ -44,7 +50,44 @@ GripMower/
 - **Aktívne brzdenie v stoji (`WHEEL_HOLD_BRAKE = 1`):** Kolesá zostávajú zaarmované v `MM32_RUN` na `0 ot./s` (aj pri `tilt_latch` na svahu, kým čepele idú do `IDLE`). Fyzická STOPka, výpadok heartbeatu (> 500 ms), chyba motora alebo watchdog okamžite odpoja stykač `GPIO4`.
 - **Test bez čepelí:** V `checkMotorPower()` je aktuálne zakomentovaná kontrola čepelí (`blades`) — po pripojení dosiek čepelí ju treba odkomentovať.
 
-## Kompilácia (Arduino IDE)
+## Automatický build (GitHub Actions)
+
+Každý push do vetvy `main` (alebo manuálne spustenie v záložke **Actions → Build ESP32 Firmware**) automaticky skompiluje `mainEmulatorMowgli.ino` cez `arduino-cli` (`esp32:esp32:esp32`, ESP32 core `3.3.13`) a zverejní výsledný `gripmower-esp32-merged.bin` (+ `SHA256SUMS.txt` a `firmware-info.json`) do GitHub Release s tagom **`firmware-latest`**.
+
+Pri pushnutí verzného tagu (napr. `v0.9.3`) sa navyše vytvorí samostatný archívny GitHub Release.
+
+## Nahratie firmvéru na kosačke (Raspberry Pi cez USB)
+
+### 1. Jednorazová inštalácia ikony na plochu (pre vzdialenú plochu)
+
+Na Raspberry Pi otvor terminál a spusti jeden príkaz:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lukaskrnac/GripMower/main/tools/install-flasher.sh | bash
+```
+
+Tým sa nainštaluje skript `~/.local/bin/gripmower-flash-esp32` a vytvorí ikona **GripMower ESP32 Flash** priamo na ploche (aj v menu aplikácií).
+
+### 2. Aktualizácia ESP32 kedykoľvek cez vzdialenú plochu
+
+1. Uisti sa, že kosačka stojí na mieste a nože sú bezpečne vypnuté (ideálne stlač fyzickú STOPku).
+2. Dvojklikni na ikonu **GripMower ESP32 Flash** na ploche (alebo v termináli spusti `~/.local/bin/gripmower-flash-esp32`).
+3. Skript automaticky:
+   - skontroluje najnovší build v GitHub Release `firmware-latest` a porovná ho s naposledy nahratou verziou,
+   - nájde USB port ESP32 (uprednostní `/dev/mowgli` a odlíši GPS/LiDAR),
+   - stiahne `gripmower-esp32-merged.bin` a overí jeho SHA-256 kontrolný súčet,
+   - pri prvom spustení si sám nainštaluje `esptool` do vlastného venv (`~/.local/share/gripmower-flasher/venv`),
+   - dočasne zastaví Docker kontajner `mowgli-ros2`, nahrá firmware do ESP32 (pri chybe skúsi pomalších 115200 baud) a kontajner znova spustí.
+
+Užitočné prepínače z terminálu:
+
+```bash
+~/.local/bin/gripmower-flash-esp32 --port /dev/ttyUSB0     # ručný výber portu
+~/.local/bin/gripmower-flash-esp32 --tag v0.9.3            # konkrétny release tag
+~/.local/bin/gripmower-flash-esp32 --self-update           # aktualizácia samotného skriptu
+```
+
+## Ručná kompilácia (Arduino IDE)
 
 1. Otvor `firmware/esp32/mainEmulatorMowgli/mainEmulatorMowgli.ino` v Arduino IDE (doska **ESP32 Dev Module**).
 2. Nainštaluj potrebné knižnice:
