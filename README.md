@@ -29,11 +29,14 @@ GripMower/
 │   └── install-flasher.sh        # Installs CLI & Desktop icon on the onboard Mini PC
 ├── docs/
 │   └── images/
-│       └── gripmower.jpg         # GripMower render
+│       ├── gripmower.jpg         # GripMower render
+│       └── esp32-wiring.svg      # ESP32 wiring schematic
 └── hardware/                     # (reserved for schematics, PCB, CAD/3D models)
 ```
 
 ## Hardware & ESP32 Pinout
+
+![GripMower ESP32 Wiring Diagram](docs/images/esp32-wiring.svg)
 
 | Function | ESP32 Pin(s) | Notes |
 |---|---|---|

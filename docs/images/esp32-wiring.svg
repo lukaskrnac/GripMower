@@ -1,0 +1,316 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1220 760" width="1220" height="760" role="img" aria-labelledby="title desc">
+  <title id="title">GripMower ESP32 Dev Module Wiring Diagram</title>
+  <desc id="desc">Schematic showing connections between the ESP32 Dev Module, onboard Mini PC (USB), safety contactor, emergency stop, dock detect, BTS7960 steering driver, AS5600 steering encoder, MM32 hoverboard wheel and blade motor buses, and BMI088 + QMC5883L IMU.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .header-bg { fill: #0f172a; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 700; fill: #f8fafc; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; fill: #cbd5e1; }
+      .card { fill: #ffffff; stroke-width: 2; rx: 10; ry: 10; }
+      .card-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .card-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #475569; }
+      .card-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; fill: #334155; }
+      .esp-body { fill: #1e293b; stroke: #0f172a; stroke-width: 2.5; }
+      .esp-shield { fill: #94a3b8; stroke: #64748b; stroke-width: 1.5; }
+      .esp-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #f8fafc; }
+      .esp-sub { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10.5px; fill: #94a3b8; }
+      .pin-label { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; font-weight: 700; fill: #f1f5f9; }
+      .pin-role { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; fill: #94a3b8; }
+      .wire-lbl { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; font-weight: 600; fill: #334155; }
+      .wire-pill { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; rx: 4; ry: 4; }
+      .legend-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #334155; }
+      .note-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11.5px; fill: #475569; }
+    </style>
+
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="112%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+
+    <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#dc2626"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706"/>
+    </marker>
+    <marker id="arr-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <!-- Outer Frame -->
+  <rect x="1" y="1" width="1218" height="758" rx="14" ry="14" class="bg" stroke="#cbd5e1" stroke-width="2"/>
+
+  <!-- Header -->
+  <path d="M 15 1 H 1205 A 14 14 0 0 1 1219 15 V 74 H 1 V 15 A 14 14 0 0 1 15 1 Z" class="header-bg"/>
+  <rect x="26" y="20" width="8" height="36" rx="4" fill="#f97316"/>
+  <text x="46" y="38" class="title">GripMower — ESP32 Wiring Diagram</text>
+  <text x="46" y="58" class="subtitle">mainEmulatorMowgli (MowgliNext Protocol v9)  •  3.3 V logic level  •  Common GND required across all subsystems</text>
+
+  <!-- ==================== TOP: MINI PC ==================== -->
+  <g filter="url(#shadow)">
+    <rect x="350" y="92" width="520" height="66" class="card" stroke="#2563eb"/>
+    <path d="M 360 92 H 860 A 10 10 0 0 1 870 102 V 102 H 350 V 102 A 10 10 0 0 1 360 92 Z" fill="#2563eb"/>
+    <text x="610" y="122" text-anchor="middle" class="card-title">Onboard Mini PC — MowgliNext (ROS 2 + 3D Localization)</text>
+    <text x="610" y="143" text-anchor="middle" class="card-mono">USB Serial (/dev/mowgli)  •  115200 baud  •  COBS + CRC-16/CCITT (v9)</text>
+  </g>
+
+  <!-- USB Wire (Mini PC <-> ESP32) -->
+  <line x1="610" y1="160" x2="610" y2="206" stroke="#2563eb" stroke-width="3.5" marker-start="url(#arr-blue)" marker-end="url(#arr-blue)"/>
+  <rect x="622" y="172" width="118" height="22" class="wire-pill"/>
+  <text x="681" y="187" text-anchor="middle" class="wire-lbl" style="fill:#1d4ed8">USB / Serial</text>
+
+  <!-- ==================== CENTER: ESP32 DEV MODULE ==================== -->
+  <g filter="url(#shadow)">
+    <!-- PCB Body (x=462..758, width=296, centered at 610) -->
+    <rect x="462" y="216" width="296" height="456" rx="14" ry="14" class="esp-body"/>
+    <!-- USB Connector on top -->
+    <rect x="582" y="206" width="56" height="20" rx="3" fill="#cbd5e1" stroke="#475569" stroke-width="1.5"/>
+    <text x="610" y="220" text-anchor="middle" style="font-family:monospace;font-size:10px;font-weight:700;fill:#0f172a">USB</text>
+
+    <!-- RF Shield neatly centered in middle column (x=556..664) -->
+    <rect x="556" y="242" width="108" height="68" rx="6" class="esp-shield"/>
+    <text x="610" y="272" text-anchor="middle" style="font-family:monospace;font-size:11.5px;font-weight:700;fill:#0f172a">ESP-WROOM-32</text>
+    <text x="610" y="290" text-anchor="middle" style="font-family:monospace;font-size:9.5px;fill:#334155">ESP32 DevKit</text>
+
+    <!-- Center status title -->
+    <text x="610" y="346" text-anchor="middle" class="esp-title">ESP32</text>
+    <text x="610" y="364" text-anchor="middle" class="esp-sub">Mowgli Emulator</text>
+    <text x="610" y="380" text-anchor="middle" class="esp-sub">HW Watchdog (1 s)</text>
+
+    <!-- Subtle internal divider -->
+    <line x1="556" y1="398" x2="664" y2="398" stroke="#334155" stroke-width="1"/>
+    <text x="610" y="656" text-anchor="middle" class="esp-sub">3.3 V Logic • Common GND</text>
+  </g>
+
+  <!-- ==================== ESP32 LEFT PINS (x=462) ==================== -->
+  <!-- GPIO4 -->
+  <circle cx="462" cy="272" r="5.5" fill="#dc2626" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="275" class="pin-label">GPIO4</text>
+  <text x="475" y="288" class="pin-role">OUT / ISR</text>
+
+  <!-- GPIO13 -->
+  <circle cx="462" cy="332" r="5.5" fill="#dc2626" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="335" class="pin-label">GPIO13</text>
+  <text x="475" y="348" class="pin-role">IN_PULLUP</text>
+
+  <!-- GPIO34 -->
+  <circle cx="462" cy="390" r="5.5" fill="#d97706" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="393" class="pin-label">GPIO34</text>
+  <text x="475" y="406" class="pin-role">INPUT ONLY</text>
+
+  <!-- GPIO25 / 26 / 27 (BTS7960) -->
+  <circle cx="462" cy="466" r="5.5" fill="#0d9488" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="470" class="pin-label">GPIO25</text>
+  <text x="530" y="470" class="pin-role">EN</text>
+
+  <circle cx="462" cy="496" r="5.5" fill="#0d9488" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="500" class="pin-label">GPIO26</text>
+  <text x="530" y="500" class="pin-role">L_PWM</text>
+
+  <circle cx="462" cy="526" r="5.5" fill="#0d9488" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="530" class="pin-label">GPIO27</text>
+  <text x="530" y="530" class="pin-role">R_PWM</text>
+
+  <!-- GPIO19 / 18 (AS5600 Wire1) -->
+  <circle cx="462" cy="594" r="5.5" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="598" class="pin-label">GPIO19</text>
+  <text x="530" y="598" class="pin-role">SDA1</text>
+
+  <circle cx="462" cy="624" r="5.5" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="475" y="628" class="pin-label">GPIO18</text>
+  <text x="530" y="628" class="pin-role">SCL1</text>
+
+  <!-- ==================== ESP32 RIGHT PINS (x=758) ==================== -->
+  <!-- GPIO14 / 23 (Serial1 Wheels) -->
+  <circle cx="758" cy="288" r="5.5" fill="#ea580c" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="290" text-anchor="end" class="pin-label">GPIO14</text>
+  <text x="745" y="303" text-anchor="end" class="pin-role">RX1 (PU)</text>
+
+  <circle cx="758" cy="332" r="5.5" fill="#ea580c" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="334" text-anchor="end" class="pin-label">GPIO23</text>
+  <text x="745" y="347" text-anchor="end" class="pin-role">TX1</text>
+
+  <!-- GPIO32 / 33 (Serial2 Blades) -->
+  <circle cx="758" cy="448" r="5.5" fill="#ea580c" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="450" text-anchor="end" class="pin-label">GPIO32</text>
+  <text x="745" y="463" text-anchor="end" class="pin-role">RX2 (PU)</text>
+
+  <circle cx="758" cy="492" r="5.5" fill="#ea580c" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="494" text-anchor="end" class="pin-label">GPIO33</text>
+  <text x="745" y="507" text-anchor="end" class="pin-role">TX2</text>
+
+  <!-- GPIO21 / 22 (Wire IMU) -->
+  <circle cx="758" cy="594" r="5.5" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="598" text-anchor="end" class="pin-label">GPIO21</text>
+  <text x="690" y="598" text-anchor="end" class="pin-role">SDA0</text>
+
+  <circle cx="758" cy="624" r="5.5" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="628" text-anchor="end" class="pin-label">GPIO22</text>
+  <text x="690" y="628" text-anchor="end" class="pin-role">SCL0</text>
+
+  <!-- ==================== LEFT CARDS & WIRES ==================== -->
+  <!-- 1. Main NO Contactor -->
+  <g filter="url(#shadow)">
+    <rect x="28" y="242" width="326" height="60" class="card" stroke="#dc2626"/>
+    <rect x="28" y="242" width="8" height="60" rx="4" fill="#dc2626"/>
+    <text x="48" y="266" class="card-title">Main NO Motor Power Contactor</text>
+    <text x="48" y="286" class="card-sub">HIGH = energized • Cuts power to all MM32 boards</text>
+  </g>
+  <line x1="456" y1="272" x2="360" y2="272" stroke="#dc2626" stroke-width="2.5" marker-end="url(#arr-red)"/>
+  <rect x="370" y="252" width="76" height="17" class="wire-pill"/>
+  <text x="408" y="264" text-anchor="middle" class="wire-lbl" style="fill:#b91c1c">HIGH = ON</text>
+
+  <!-- 2. Emergency STOP -->
+  <g filter="url(#shadow)">
+    <rect x="28" y="310" width="326" height="50" class="card" stroke="#dc2626"/>
+    <rect x="28" y="310" width="8" height="50" rx="4" fill="#dc2626"/>
+    <text x="48" y="332" class="card-title">Physical Emergency STOP Button</text>
+    <text x="48" y="349" class="card-sub">Switch to GND • Active LOW (clears fault latch)</text>
+  </g>
+  <line x1="354" y1="332" x2="452" y2="332" stroke="#dc2626" stroke-width="2.5" marker-end="url(#arr-red)"/>
+  <rect x="368" y="312" width="80" height="17" class="wire-pill"/>
+  <text x="408" y="324" text-anchor="middle" class="wire-lbl" style="fill:#b91c1c">Active LOW</text>
+
+  <!-- 3. Docking Detect -->
+  <g filter="url(#shadow)">
+    <rect x="28" y="368" width="326" height="50" class="card" stroke="#d97706"/>
+    <rect x="28" y="368" width="8" height="50" rx="4" fill="#d97706"/>
+    <text x="48" y="390" class="card-title">Docking Station Detection</text>
+    <text x="48" y="407" class="card-sub">Active LOW • External pull-up (GPIO34 input-only)</text>
+  </g>
+  <line x1="354" y1="390" x2="452" y2="390" stroke="#d97706" stroke-width="2.5" marker-end="url(#arr-amber)"/>
+  <rect x="368" y="370" width="80" height="17" class="wire-pill"/>
+  <text x="408" y="382" text-anchor="middle" class="wire-lbl" style="fill:#b45309">Active LOW</text>
+
+  <!-- 4. BTS7960 Steering Driver -->
+  <g filter="url(#shadow)">
+    <rect x="28" y="438" width="326" height="114" class="card" stroke="#0d9488"/>
+    <rect x="28" y="438" width="8" height="114" rx="4" fill="#0d9488"/>
+    <text x="48" y="463" class="card-title">BTS7960 Dual H-Bridge Driver</text>
+    <text x="48" y="483" class="card-sub">Drives front-wheel steering DC motor</text>
+    <text x="48" y="505" class="card-mono">EN (L_EN + R_EN)  ◄── GPIO25</text>
+    <text x="48" y="522" class="card-mono">L_PWM / R_PWM     ◄── GPIO26 / GPIO27</text>
+    <text x="48" y="539" class="card-sub">Closed-loop steering with BEMF current limit</text>
+  </g>
+  <line x1="456" y1="466" x2="360" y2="466" stroke="#0d9488" stroke-width="2.2" marker-end="url(#arr-teal)"/>
+  <line x1="456" y1="496" x2="360" y2="496" stroke="#0d9488" stroke-width="2.2" marker-end="url(#arr-teal)"/>
+  <line x1="456" y1="526" x2="360" y2="526" stroke="#0d9488" stroke-width="2.2" marker-end="url(#arr-teal)"/>
+  <rect x="382" y="447" width="52" height="16" class="wire-pill"/>
+  <text x="408" y="459" text-anchor="middle" class="wire-lbl" style="fill:#0f766e">EN</text>
+  <rect x="378" y="477" width="60" height="16" class="wire-pill"/>
+  <text x="408" y="489" text-anchor="middle" class="wire-lbl" style="fill:#0f766e">L_PWM</text>
+  <rect x="378" y="507" width="60" height="16" class="wire-pill"/>
+  <text x="408" y="519" text-anchor="middle" class="wire-lbl" style="fill:#0f766e">R_PWM</text>
+
+  <!-- 5. AS5600 Steering Encoder -->
+  <g filter="url(#shadow)">
+    <rect x="28" y="568" width="326" height="84" class="card" stroke="#7c3aed"/>
+    <rect x="28" y="568" width="8" height="84" rx="4" fill="#7c3aed"/>
+    <text x="48" y="592" class="card-title">AS5600 Magnetic Steering Encoder</text>
+    <text x="48" y="612" class="card-sub">Front-wheel angle feedback (AS5600Wire1.h)</text>
+    <text x="48" y="634" class="card-mono">I2C1 (Wire1)  •  Address 0x36  •  3.3 V</text>
+  </g>
+  <line x1="360" y1="594" x2="452" y2="594" stroke="#7c3aed" stroke-width="2.2" marker-start="url(#arr-purple)" marker-end="url(#arr-purple)"/>
+  <line x1="360" y1="624" x2="452" y2="624" stroke="#7c3aed" stroke-width="2.2" marker-start="url(#arr-purple)" marker-end="url(#arr-purple)"/>
+  <rect x="376" y="575" width="64" height="16" class="wire-pill"/>
+  <text x="408" y="587" text-anchor="middle" class="wire-lbl" style="fill:#6d28d9">SDA1</text>
+  <rect x="376" y="605" width="64" height="16" class="wire-pill"/>
+  <text x="408" y="617" text-anchor="middle" class="wire-lbl" style="fill:#6d28d9">SCL1</text>
+
+  <!-- ==================== RIGHT CARDS & WIRES ==================== -->
+  <!-- 1. MM32 Drive Wheels (Serial1) -->
+  <g filter="url(#shadow)">
+    <rect x="866" y="242" width="326" height="134" class="card" stroke="#ea580c"/>
+    <rect x="866" y="242" width="8" height="134" rx="4" fill="#ea580c"/>
+    <text x="886" y="267" class="card-title">MM32 Drive Wheels (Hoverboard BLDC)</text>
+    <text x="886" y="286" class="card-sub">Serial1 • 115200 baud • CANSimple-over-UART</text>
+    <rect x="886" y="298" width="140" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+    <text x="956" y="314" text-anchor="middle" class="card-mono" style="font-weight:700;fill:#9a3412">ID 1 — Left Wheel</text>
+    <text x="956" y="328" text-anchor="middle" style="font-family:sans-serif;font-size:10.5px;fill:#9a3412">+ VBAT sensing</text>
+    <rect x="1036" y="298" width="142" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+    <text x="1107" y="314" text-anchor="middle" class="card-mono" style="font-weight:700;fill:#9a3412">ID 2 — Right Wheel</text>
+    <text x="1107" y="328" text-anchor="middle" style="font-family:sans-serif;font-size:10.5px;fill:#9a3412">Spiked drum drive</text>
+    <text x="886" y="357" class="card-sub">Open-drain TX bus + ext. pull-up resistor on RX1</text>
+  </g>
+  <line x1="860" y1="288" x2="768" y2="288" stroke="#ea580c" stroke-width="2.4" marker-end="url(#arr-orange)"/>
+  <line x1="764" y1="332" x2="860" y2="332" stroke="#ea580c" stroke-width="2.4" marker-end="url(#arr-orange)"/>
+  <rect x="774" y="268" width="76" height="17" class="wire-pill"/>
+  <text x="812" y="280" text-anchor="middle" class="wire-lbl" style="fill:#c2410c">RX1 (PU)</text>
+  <rect x="774" y="312" width="76" height="17" class="wire-pill"/>
+  <text x="812" y="324" text-anchor="middle" class="wire-lbl" style="fill:#c2410c">TX1</text>
+
+  <!-- 2. MM32 Blade Motors (Serial2) -->
+  <g filter="url(#shadow)">
+    <rect x="866" y="400" width="326" height="134" class="card" stroke="#ea580c"/>
+    <rect x="866" y="400" width="8" height="134" rx="4" fill="#ea580c"/>
+    <text x="886" y="425" class="card-title">MM32 Blade Motors (Hoverboard BLDC)</text>
+    <text x="886" y="444" class="card-sub">Serial2 • 115200 baud • CANSimple-over-UART</text>
+    <rect x="886" y="456" width="90" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+    <text x="931" y="472" text-anchor="middle" class="card-mono" style="font-weight:700;fill:#9a3412">ID 3</text>
+    <text x="931" y="486" text-anchor="middle" style="font-family:sans-serif;font-size:10.5px;fill:#9a3412">Blade 1</text>
+    <rect x="984" y="456" width="90" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+    <text x="1029" y="472" text-anchor="middle" class="card-mono" style="font-weight:700;fill:#9a3412">ID 4</text>
+    <text x="1029" y="486" text-anchor="middle" style="font-family:sans-serif;font-size:10.5px;fill:#9a3412">Blade 2</text>
+    <rect x="1082" y="456" width="96" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2"/>
+    <text x="1130" y="472" text-anchor="middle" class="card-mono" style="font-weight:700;fill:#9a3412">ID 5</text>
+    <text x="1130" y="486" text-anchor="middle" style="font-family:sans-serif;font-size:10.5px;fill:#9a3412">Blade 3</text>
+    <text x="886" y="515" class="card-sub">Open-drain TX bus + ext. pull-up resistor on RX2</text>
+  </g>
+  <line x1="860" y1="448" x2="768" y2="448" stroke="#ea580c" stroke-width="2.4" marker-end="url(#arr-orange)"/>
+  <line x1="764" y1="492" x2="860" y2="492" stroke="#ea580c" stroke-width="2.4" marker-end="url(#arr-orange)"/>
+  <rect x="774" y="428" width="76" height="17" class="wire-pill"/>
+  <text x="812" y="440" text-anchor="middle" class="wire-lbl" style="fill:#c2410c">RX2 (PU)</text>
+  <rect x="774" y="472" width="76" height="17" class="wire-pill"/>
+  <text x="812" y="484" text-anchor="middle" class="wire-lbl" style="fill:#c2410c">TX2</text>
+
+  <!-- 3. IMU + Compass (Wire / I2C0) -->
+  <g filter="url(#shadow)">
+    <rect x="866" y="560" width="326" height="104" class="card" stroke="#7c3aed"/>
+    <rect x="866" y="560" width="8" height="104" rx="4" fill="#7c3aed"/>
+    <text x="886" y="584" class="card-title">IMU + Compass (I2C0 / Wire • 400 kHz)</text>
+    <text x="886" y="606" class="card-mono">BMI088   •  Accel 0x19 / Gyro 0x69</text>
+    <text x="886" y="625" class="card-mono">QMC5883L •  Magnetometer 0x0D</text>
+    <text x="886" y="646" class="card-sub">Tilt safety cutoff (roll &gt; 45°, pitch &gt; 35°) + ROS IMU</text>
+  </g>
+  <line x1="768" y1="594" x2="860" y2="594" stroke="#7c3aed" stroke-width="2.2" marker-start="url(#arr-purple)" marker-end="url(#arr-purple)"/>
+  <line x1="768" y1="624" x2="860" y2="624" stroke="#7c3aed" stroke-width="2.2" marker-start="url(#arr-purple)" marker-end="url(#arr-purple)"/>
+  <rect x="780" y="575" width="64" height="16" class="wire-pill"/>
+  <text x="812" y="587" text-anchor="middle" class="wire-lbl" style="fill:#6d28d9">SDA0</text>
+  <rect x="780" y="605" width="64" height="16" class="wire-pill"/>
+  <text x="812" y="617" text-anchor="middle" class="wire-lbl" style="fill:#6d28d9">SCL0</text>
+
+  <!-- ==================== FOOTER LEGEND & NOTES ==================== -->
+  <rect x="28" y="690" width="1164" height="52" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+
+  <!-- Legend swatches -->
+  <circle cx="48" cy="708" r="5" fill="#2563eb"/>
+  <text x="58" y="712" class="legend-text">USB Host</text>
+
+  <circle cx="142" cy="708" r="5" fill="#dc2626"/>
+  <text x="152" y="712" class="legend-text">Safety / E-Stop</text>
+
+  <circle cx="272" cy="708" r="5" fill="#d97706"/>
+  <text x="282" y="712" class="legend-text">Dock Sense</text>
+
+  <circle cx="384" cy="708" r="5" fill="#0d9488"/>
+  <text x="394" y="712" class="legend-text">Steering PWM</text>
+
+  <circle cx="508" cy="708" r="5" fill="#ea580c"/>
+  <text x="518" y="712" class="legend-text">MM32 UART Buses (Open-Drain)</text>
+
+  <circle cx="728" cy="708" r="5" fill="#7c3aed"/>
+  <text x="738" y="712" class="legend-text">I2C Sensors (Wire / Wire1)</text>
+
+  <text x="44" y="732" class="note-text">Note (ESP32 Arduino core 3.x): RX1 (GPIO14) &amp; RX2 (GPIO32) pull-ups use gpio_pullup_en() + external pull-up resistors — never pinMode(..., INPUT_PULLUP) after Serial.begin().</text>
+</svg>
